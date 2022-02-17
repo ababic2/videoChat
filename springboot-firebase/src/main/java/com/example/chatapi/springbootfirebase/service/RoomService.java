@@ -2,10 +2,7 @@ package com.example.chatapi.springbootfirebase.service;
 
 import com.example.chatapi.springbootfirebase.entity.Room;
 import com.google.api.core.ApiFuture;
-import com.google.cloud.firestore.DocumentReference;
-import com.google.cloud.firestore.DocumentSnapshot;
-import com.google.cloud.firestore.Firestore;
-import com.google.cloud.firestore.WriteResult;
+import com.google.cloud.firestore.*;
 import com.google.firebase.cloud.FirestoreClient;
 import org.springframework.stereotype.Service;
 
@@ -21,7 +18,7 @@ public class RoomService {
 
     public String saveRoom(Room room) throws ExecutionException, InterruptedException {
         Firestore db = FirestoreClient.getFirestore();
-        ApiFuture<WriteResult> collectionApiFuture = db.collection(COLLECTION_NAME).document(room.getName()).set(room);
+        ApiFuture<WriteResult> collectionApiFuture = db.collection(COLLECTION_NAME).document().set(room);
 
         return "Created at: " + collectionApiFuture.get().getUpdateTime().toString();
     }
@@ -62,12 +59,35 @@ public class RoomService {
         Firestore dbFirestore = FirestoreClient.getFirestore();
         ApiFuture<WriteResult> collectionApiFuture=dbFirestore.collection(COLLECTION_NAME).document(room.getName()).set(room);
         return "Updated at: " + collectionApiFuture.get().getUpdateTime().toString();
-
     }
 
-    public String deleteRoom(String name) {
+    public String deleteRoom(String documentName) throws ExecutionException, InterruptedException {
         Firestore dbFirestore = FirestoreClient.getFirestore();
-        ApiFuture<WriteResult> collectionApiFuture = dbFirestore.collection(COLLECTION_NAME).document(name).delete();
-        return "Document with Product ID" + name + " has been deleted successfully";
+        ApiFuture<WriteResult> collectionApiFuture = dbFirestore.collection(COLLECTION_NAME).document(documentName).delete();
+        deleteRecordFromJunctionTable(documentName);
+        // delete messages in this room
+        deleteMessages(documentName);
+        return "Document with Product ID" + documentName + " has been deleted successfully";
+    }
+
+    private void deleteMessages(String documentName) throws ExecutionException, InterruptedException {
+        Firestore db = FirestoreClient.getFirestore();
+        ApiFuture<QuerySnapshot> future = db.collection("messages").whereEqualTo("roomId", documentName).get();
+
+        List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+        for (DocumentSnapshot document : documents) {
+            db.collection("messages").document(document.getId()).delete();
+        }
+    }
+
+    private void deleteRecordFromJunctionTable(String documentName) throws ExecutionException, InterruptedException {
+        // find all rooms and delete those records in junction
+        Firestore db = FirestoreClient.getFirestore();
+        ApiFuture<QuerySnapshot> future = db.collection("junction_user_room").whereEqualTo("roomId", documentName).get();
+
+        List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+        for (DocumentSnapshot document : documents) {
+            db.collection("junction_user_room").document(document.getId()).delete();
+        }
     }
 }

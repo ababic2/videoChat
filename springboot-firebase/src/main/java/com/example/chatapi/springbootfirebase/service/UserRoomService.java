@@ -6,12 +6,10 @@ import com.example.chatapi.springbootfirebase.entity.UserRoom;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.*;
 import com.google.firebase.cloud.FirestoreClient;
-import com.google.firebase.internal.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -22,13 +20,16 @@ public class UserRoomService {
     // myb check if room/user exists when adding but might not be needed in project
     // delete user from room
 
-    private static final String COLLECTION_NAME = "junction_user_room" ;
     @Autowired
     private UserService userService;
     @Autowired
     private RoomService roomService;
 
+    private static final String COLLECTION_NAME = "junction_user_room" ;
+
     public String addUserToRoom(UserRoom userRoom) throws ExecutionException, InterruptedException {
+        // if room doesnt exis, add it to rooms collection
+        // but this can be solved with uid
         Firestore db = FirestoreClient.getFirestore();
         ApiFuture<WriteResult> collectionApiFuture = db.collection(COLLECTION_NAME)
                         .document(userRoom.getUserId().toString() + "_" + userRoom.getRoomId().toString()).set(userRoom);
@@ -43,23 +44,22 @@ public class UserRoomService {
 
     public List<Room> getRoomsForUser(String name) throws ExecutionException, InterruptedException {
         Firestore db = FirestoreClient.getFirestore();
-        ApiFuture<QuerySnapshot> future =
-                db.collection(COLLECTION_NAME).whereEqualTo("userId", name).get();
+        ApiFuture<QuerySnapshot> future = db.collection(COLLECTION_NAME).whereEqualTo("userId", name).get();
 
         List<QueryDocumentSnapshot> documents = future.get().getDocuments();
         List<String> roomIds = new ArrayList<>();
         for (DocumentSnapshot document : documents) {
             roomIds.add(document.toObject(UserRoom.class).getRoomId());
         }
+
         List<Room> rooms = new ArrayList<>();
-        for (String room : roomIds)
-        {
+        for (String room : roomIds) {
             rooms.add(roomService.getRoomByName(room));
         }
         return rooms;
     }
 
-    public List<User> getMembersForRoom(String name) throws ExecutionException, InterruptedException {
+    public List<User> getMembersForRoom(String name, String token) throws ExecutionException, InterruptedException {
 
         Firestore db = FirestoreClient.getFirestore();
         //asynchronously retrieve multiple documents
@@ -75,7 +75,7 @@ public class UserRoomService {
         List<User> members = new ArrayList<>();
         for (String username : usernames)
         {
-            members.add(userService.getUserByName(username));
+            members.add((User) userService.getUserByName(username, token));
         }
         return members;
     }

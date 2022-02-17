@@ -2,224 +2,140 @@ package com.example.chatapi.springbootfirebase.service;
 
 import com.example.chatapi.springbootfirebase.entity.User;
 import com.google.api.core.ApiFuture;
-import com.google.cloud.firestore.DocumentReference;
-import com.google.cloud.firestore.DocumentSnapshot;
-import com.google.cloud.firestore.Firestore;
-import com.google.cloud.firestore.WriteResult;
+import com.google.cloud.firestore.*;
 import com.google.firebase.auth.*;
 import com.google.firebase.cloud.FirestoreClient;
-import net.minidev.json.JSONObject;
-import net.minidev.json.parser.JSONParser;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.util.EntityUtils;
+import com.google.firebase.database.utilities.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import javax.mail.MessagingException;
 import java.io.IOException;
-import java.util.*;
 import java.util.concurrent.ExecutionException;
+import java.util.*;
 
 @Service
 public class UserService {
     @Autowired
-    private EmailSenderService emailSenderService;
+    private FirebaseService firebaseService;
 
     private static final String COLLECTION_NAME = "users" ;
-    public String saveUser(User user) throws ExecutionException, InterruptedException, FirebaseAuthException, MessagingException, IOException {
-        Firestore db = FirestoreClient.getFirestore();
+    private static final String TOKEN_INVALID = "Token is invalid!" ;
 
-        UserRecord userRecord = addUserToFirebaseAuthentication(user);
+    public String registerUser(User user) throws ExecutionException, InterruptedException, FirebaseAuthException, IOException {
 
-        ApiFuture<WriteResult> collectionApiFuture = db.collection(COLLECTION_NAME).document(userRecord.getUid()).set(user);
+        Firestore dbFirestore = FirestoreClient.getFirestore();
+        Pair<String, String> registerInfo = firebaseService.registerUser(user);
+        ApiFuture<WriteResult> collectionApiFuture = dbFirestore.collection(COLLECTION_NAME).document(registerInfo.getSecond()).set(user);
 
-        registerUser(user);
-        Object token = signUpUser(user);
-
-        String link = FirebaseAuth.getInstance().generateEmailVerificationLink(user.getEmail());
-//        SSLEmail sslEmail = new SSLEmail();
-//        sslEmail.sendMail(link);
-        verifyEmail(userRecord, String.valueOf(token));
+        verification(String.valueOf(registerInfo.getFirst()));
         return "Created at: " + collectionApiFuture.get().getUpdateTime().toString();
     }
 
-    private Object signUpUser(User user) throws IOException {
-        JSONObject json = new JSONObject();
-        json.put("email", user.getEmail());
-        json.put("password", user.getPassword());
-        json.put("returnSecureToken", true);
-
-        CloseableHttpClient httpClient = HttpClientBuilder.create().build();
-        JSONObject result = null;
-
+    public String logIn(User user) {
         try {
-            HttpPost request2 = new HttpPost(
-                    "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyD0lfUZNxCpC2BydNDEpXgnpcewi0dAdiE");
-            StringEntity params = new StringEntity(json.toString());
-            request2.addHeader("content-type", "application/json");
-            request2.setEntity(params);
-            HttpResponse response = httpClient.execute(request2);
-            HttpEntity entity = response.getEntity();
-            // Read the contents of an entity and return it as a String.
-            // CONVERT RESPONSE TO STRING
-            String content = EntityUtils.toString(entity);
-            // CONVERT RESPONSE STRING TO JSON ARRAY
-            JSONParser parser = new JSONParser();
-            result = (JSONObject) parser.parse(content);
-            System.out.println(String.valueOf(result.get("idToken")));
-            httpClient.close();
-            return result.get("idToken");
-        } catch (Exception ex) {
-            // handle exception here
+            String token = firebaseService.signInUser(user).toString();
+            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
+        } catch (Exception exception) {
+            System.out.println("Invalid user!");
         }
-//        } finally {
-//            httpClient.close();
-////            return result.get("idToken").toString();
-//        }
-        httpClient.close();
-        return null;
+        return "User in logged!";
     }
 
-    private UserRecord addUserToFirebaseAuthentication(User user) throws ExecutionException, InterruptedException, IOException, FirebaseAuthException {
-        UserRecord.CreateRequest request = new UserRecord.CreateRequest()
-                .setEmail(user.getEmail())
-                .setEmailVerified(false)
-                .setPassword(user.getPassword())
-                .setDisplayName(user.getUsername());
-
-        ApiFuture<UserRecord> userRecord = FirebaseAuth.getInstance().createUserAsync(request);
-        return userRecord.get();
-    }
-
-    private void registerUser(User user) throws IOException {
-        JSONObject json = new JSONObject();
-        json.put("email", user.getEmail());
-        json.put("password", user.getPassword());
-        json.put("returnSecureToken", true);
-
-        CloseableHttpClient httpClient = HttpClientBuilder.create().build();
-
-        try {
-            HttpPost request2 = new HttpPost(
-                    "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=AIzaSyD0lfUZNxCpC2BydNDEpXgnpcewi0dAdiE");
-            StringEntity params = new StringEntity(json.toString());
-            request2.addHeader("content-type", "application/json");
-            request2.setEntity(params);
-            httpClient.execute(request2);
-        // handle response here...
-        } catch (Exception ex) {
-            // handle exception here
-        } finally {
-            httpClient.close();
+    public Object getUserByName(String name, String token) throws ExecutionException, InterruptedException {
+        if(isTokenValid(token)) {
+            Firestore dbFirestore = FirestoreClient.getFirestore();
+            DocumentReference documentReference = dbFirestore.collection(COLLECTION_NAME).document(name);
+            ApiFuture<DocumentSnapshot> future = documentReference.get();
+            DocumentSnapshot document = future.get();
+            if (document.exists()) {
+                return document.toObject(User.class);
+            } else {
+                return null;
+            }
         }
+        return TOKEN_INVALID;
     }
 
-    private void verifyEmail(UserRecord userRecord, String customToken) throws IOException, FirebaseAuthException {
-        FirebaseAuth.getInstance().revokeRefreshTokens(userRecord.getUid());
-        JSONObject json = new JSONObject();
-        System.out.println(customToken);
-        json.put("requestType", "VERIFY_EMAIL");
-        json.put("idToken", customToken);
+    public List<User> getAllUsers(String token) throws ExecutionException, InterruptedException {
 
-        CloseableHttpClient httpClient = HttpClientBuilder.create().build();
+        if(isTokenValid(token)) {
+            Firestore dbFirestore = FirestoreClient.getFirestore();
+            Iterable<DocumentReference> documentReference = dbFirestore.collection(COLLECTION_NAME).listDocuments();
+            Iterator<DocumentReference> iterator = documentReference.iterator();
+            List<User> userList = new ArrayList<>();
 
-        try {
-            HttpPost request2 = new HttpPost(
-                    "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=AIzaSyD0lfUZNxCpC2BydNDEpXgnpcewi0dAdiE");
-            StringEntity params = new StringEntity(json.toString());
-            request2.addHeader("content-type", "application/json");
-            request2.setEntity(params);
-            HttpResponse response = httpClient.execute(request2);
-
-            HttpEntity entity = response.getEntity();
-
-            // Read the contents of an entity and return it as a String.
-            String content = EntityUtils.toString(entity);
-            System.out.println(content);
-            // handle response here...
-        } catch (Exception ex) {
-            // handle exception here
-        } finally {
-            httpClient.close();
-        }
-    }
-
-    public User getUserByName(String name) throws ExecutionException, InterruptedException {
-        Firestore dbFirestore = FirestoreClient.getFirestore();
-        DocumentReference documentReference = dbFirestore.collection(COLLECTION_NAME).document(name);
-        ApiFuture<DocumentSnapshot> future = documentReference.get();
-        DocumentSnapshot document = future.get();
-        if(document.exists()) {
-            return document.toObject(User.class);
+            while (iterator.hasNext()) {
+                DocumentReference nextDoc = iterator.next();
+                ApiFuture<DocumentSnapshot> future = nextDoc.get();
+                DocumentSnapshot document = future.get();
+                userList.add(document.toObject(User.class));
+            }
+            return userList;
         } else {
             return null;
         }
     }
 
-    public List<User> getAllUsers() throws ExecutionException, InterruptedException {
-        Firestore dbFirestore = FirestoreClient.getFirestore();
-        Iterable<DocumentReference> documentReference = dbFirestore.collection(COLLECTION_NAME).listDocuments();
-        Iterator<DocumentReference> iterator=documentReference.iterator();
-        List<User> userList = new ArrayList<>();
-
-        while(iterator.hasNext()) {
-            DocumentReference documentReference1 = iterator.next();
-            ApiFuture<DocumentSnapshot> future = documentReference1.get();
-            DocumentSnapshot document = future.get();
-            userList.add(document.toObject(User.class));
+    public String updateUser(User user, String token) throws ExecutionException, InterruptedException {
+        if(isTokenValid(token)) {
+            Firestore dbFirestore = FirestoreClient.getFirestore();
+            ApiFuture<WriteResult> collectionApiFuture = dbFirestore.collection(COLLECTION_NAME).document().set(user);
+            return "Updated at: " + collectionApiFuture.get().getUpdateTime().toString();
+        } else {
+            return "Token is invalid!";
         }
-        return userList;
     }
 
-    public String updateUser(User user) throws ExecutionException, InterruptedException {
-
-        Firestore dbFirestore = FirestoreClient.getFirestore();
-        ApiFuture<WriteResult> collectionApiFuture=dbFirestore.collection(COLLECTION_NAME).document(user.getUsername()).set(user);
-        return "Updated at: " + collectionApiFuture.get().getUpdateTime().toString();
-
-    }
-
-    public String deleteUser(String name) {
-        Firestore dbFirestore = FirestoreClient.getFirestore();
-        ApiFuture<WriteResult> collectionApiFuture = dbFirestore.collection(COLLECTION_NAME).document(name).delete();
-        return "Document with User ID" + name + " has been deleted successfully";
-    }
-
-    public void generateEmailVerificationLink(UserRecord userRecord) {
-        final ActionCodeSettings actionCodeSettings = initActionCodeSettings();
-        // [START email_verification_link]
+    // when user wants to delete account
+    // check if user is deleting himself
+    public String deleteUser(String documentName, String token) {
         try {
-            System.out.println("-------------------------------");
-            String link = FirebaseAuth.getInstance().generateEmailVerificationLink(userRecord.getEmail());
-            System.out.println("link is" + link);
-            // Construct email verification template, embed the link and send
-            // using custom SMTP server.
-            sendCustomEmail(userRecord.getEmail(), userRecord.getDisplayName(), link);
-        } catch (FirebaseAuthException e) {
-            System.out.println("Error generating email link: " + e.getMessage());
+            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
+            if(decodedToken.getUid().equals(documentName)) {
+                Firestore dbFirestore = FirestoreClient.getFirestore();
+                dbFirestore.collection(COLLECTION_NAME).document(documentName).delete();
+                deleteRecordFromJunctionTable(documentName);
+                return "Document with User ID" + documentName + " has been deleted successfully";
+            }
+        } catch (Exception exception) {
+            exception.printStackTrace();
         }
-        // [END email_verification_link]
+        return TOKEN_INVALID;
     }
 
-    private ActionCodeSettings initActionCodeSettings() {
-        ActionCodeSettings actionCodeSettings = ActionCodeSettings.builder()
-                .setUrl("https://www.example.com/checkout?cartId=1234")
-                // URL which is accessible after the user clicks the email link.
-                .setHandleCodeInApp(true)
-//                .setIosBundleId("com.example.ios")
-//                .setAndroidPackageName("com.example.android")
-//                .setAndroidInstallApp(true)
-//                .setAndroidMinimumVersion("12")
-                .setDynamicLinkDomain("coolapp.page.link")
-                .build();
-        // [END init_action_code_settings]
-        return actionCodeSettings;
+    public String verification(String token) {
+        try {
+            if(isTokenValid(token)) {
+                firebaseService.verifyEmail(token);
+                return "Verification request sent on e-mail!";
+            } else {
+                return TOKEN_INVALID;
+            }
+        } catch (Exception exception) {
+            exception.printStackTrace();
+            return "Problem with verification request!";
+        }
     }
 
-    private void sendCustomEmail(String email, String displayName, String link) {}
+    private void deleteRecordFromJunctionTable(String name) throws ExecutionException, InterruptedException {
+        Firestore db = FirestoreClient.getFirestore();
+        ApiFuture<QuerySnapshot> future = db.collection("junction_user_room").whereEqualTo("userId", name).get();
+
+        List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+        for (DocumentSnapshot document : documents) {
+            db.collection("junction_user_room").document(document.getId()).delete();
+        }
+    }
+
+    private boolean isTokenValid(String token) {
+        try {
+            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
+            return true;
+        } catch (FirebaseAuthException firebaseAuthException) {
+            return false;
+        }
+    }
+
+    public boolean checkIfUserIsVerified(String id) {
+        return firebaseService.checkIfUserIsVerified(id);
+    }
 }

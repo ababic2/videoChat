@@ -4,7 +4,7 @@ import com.google.cloud.Timestamp;
 
 public class Message {
     private String content;
-    private Timestamp timestamp;
+    private Timestamp createdAt;
     private String roomId;
     private String userId;
 
@@ -13,7 +13,7 @@ public class Message {
 
     public Message(String content, Timestamp timestamp, String roomId, String userId) {
         this.content = content;
-        this.timestamp = timestamp;
+        this.createdAt = timestamp;
         this.roomId = roomId;
         this.userId = userId;
     }
@@ -26,12 +26,12 @@ public class Message {
         this.content = content;
     }
 
-    public Timestamp getTimestamp() {
-        return timestamp;
+    public Timestamp getCreatedAt() {
+        return createdAt;
     }
 
-    public void setTimestamp(Timestamp timestamp) {
-        this.timestamp = timestamp;
+    public void setCreatedAt(Timestamp createdAt) {
+        this.createdAt = createdAt;
     }
 
     public String getRoomId() {
@@ -49,4 +49,5 @@ public class Message {
     public void setUserId(String userId) {
         this.userId = userId;
     }
+
 }

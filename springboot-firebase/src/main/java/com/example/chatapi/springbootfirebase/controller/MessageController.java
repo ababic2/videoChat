@@ -1,9 +1,7 @@
 package com.example.chatapi.springbootfirebase.controller;
 
 import com.example.chatapi.springbootfirebase.entity.Message;
-import com.example.chatapi.springbootfirebase.entity.Room;
 import com.example.chatapi.springbootfirebase.service.MessageService;
-import com.example.chatapi.springbootfirebase.service.RoomService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 

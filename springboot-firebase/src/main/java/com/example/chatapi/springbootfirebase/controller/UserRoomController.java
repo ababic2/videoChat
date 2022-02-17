@@ -4,7 +4,6 @@ import com.example.chatapi.springbootfirebase.entity.Room;
 import com.example.chatapi.springbootfirebase.entity.User;
 import com.example.chatapi.springbootfirebase.entity.UserRoom;
 import com.example.chatapi.springbootfirebase.service.UserRoomService;
-import com.example.chatapi.springbootfirebase.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,8 +29,8 @@ public class UserRoomController {
 
     // get members for specific room
     @GetMapping("/members/{name}")
-    public List<User> getMembersForRoom(@PathVariable String name) throws ExecutionException, InterruptedException {
-        return userRoomService.getMembersForRoom(name);
+    public List<User> getMembersForRoom(@PathVariable String name, @RequestHeader("Authorization") String token) throws ExecutionException, InterruptedException {
+        return userRoomService.getMembersForRoom(name, token);
     }
 
     @GetMapping("/myrooms/{name}")
