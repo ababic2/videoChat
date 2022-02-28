@@ -1,6 +1,8 @@
 package com.example.chatapi.springbootfirebase.service;
 
 import com.example.chatapi.springbootfirebase.entity.User;
+import com.example.chatapi.springbootfirebase.utils.LoginInfo;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.database.utilities.Pair;
 import net.minidev.json.JSONObject;
@@ -27,6 +29,7 @@ public class FirebaseService {
     private static final String REGISTER_URI = "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" ;
     private static final String VERIFY_MAIL_URI = "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=" ;
     private static final String USER_INFO_URI = "https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=";
+    private static final String CHANGE_EMAIL_PASSWORD = "https://identitytoolkit.googleapis.com/v1/accounts:update?key=";
 
     protected Pair<String, String> registerUser(User user) throws IOException {
 
@@ -38,6 +41,7 @@ public class FirebaseService {
         try {
             result = getJSONObject(json, REGISTER_URI + API_KEY);
             System.out.println("TOKEN");
+            System.out.println(result);
             System.out.println(String.valueOf(result.get("idToken")));
             return new Pair<>(result.get("idToken").toString(), result.get("localId").toString());
         } catch (Exception ex) {
@@ -46,11 +50,11 @@ public class FirebaseService {
         return null;
     }
 
-    protected Object signInUser(User user) throws IOException {
+    protected Object signInUser(LoginInfo loginInfo) throws IOException {
 
         JSONObject json = new JSONObject();
-        json.put("email", user.getEmail());
-        json.put("password", user.getPassword());
+        json.put("email", loginInfo.getEmail());
+        json.put("password", loginInfo.getPassword());
         json.put("returnSecureToken", true);
         JSONObject result = null;
         try {
@@ -69,6 +73,7 @@ public class FirebaseService {
         JSONObject result = null;
         try {
             result = getJSONObject(json, USER_INFO_URI + API_KEY);
+            System.out.println(result);
             ArrayList<JSONObject> array = (ArrayList<JSONObject>) result.get("users");
             return (boolean) array.get(0).get("emailVerified");
         } catch (Exception ex) {
@@ -96,6 +101,25 @@ public class FirebaseService {
             System.out.println(content);
         } catch (Exception ex) {
             System.out.println("Exception in verify Email!");
+        } finally {
+            httpClient.close();
+        }
+    }
+
+    protected void changeMail(String token, String newMail) throws IOException {
+        JSONObject json = new JSONObject();
+        json.put("idToken", token);
+        json.put("email", newMail);
+        json.put("returnSecureToken", true);
+        CloseableHttpClient httpClient = HttpClientBuilder.create().build();
+
+        try {
+            HttpPost verifyMailRequest = new HttpPost(CHANGE_EMAIL_PASSWORD + API_KEY);
+            setUpParams(json, verifyMailRequest);
+            HttpResponse response = httpClient.execute(verifyMailRequest);
+            System.out.println("Mail changed!");
+        } catch (Exception ex) {
+            System.out.println("Exception in change Email!");
         } finally {
             httpClient.close();
         }
