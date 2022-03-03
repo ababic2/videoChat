@@ -30,6 +30,7 @@ public class FirebaseService {
     private static final String VERIFY_MAIL_URI = "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=" ;
     private static final String USER_INFO_URI = "https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=";
     private static final String CHANGE_EMAIL_PASSWORD = "https://identitytoolkit.googleapis.com/v1/accounts:update?key=";
+    private static final String DELETE_ACCOUNT = "https://identitytoolkit.googleapis.com/v1/accounts:delete?key=";
 
     protected Pair<String, String> registerUser(User user) throws IOException {
 
@@ -120,6 +121,24 @@ public class FirebaseService {
             System.out.println("Mail changed!");
         } catch (Exception ex) {
             System.out.println("Exception in change Email!");
+        } finally {
+            httpClient.close();
+        }
+    }
+
+    protected void deleteAccount(String token) throws IOException {
+        JSONObject json = new JSONObject();
+        json.put("idToken", token);
+
+        CloseableHttpClient httpClient = HttpClientBuilder.create().build();
+
+        try {
+            HttpPost deleteAccountRequest = new HttpPost(DELETE_ACCOUNT + API_KEY);
+            setUpParams(json, deleteAccountRequest);
+            HttpResponse response = httpClient.execute(deleteAccountRequest);
+            System.out.println("Account deleted!");
+        } catch (Exception ex) {
+            System.out.println("Exception in account delete!");
         } finally {
             httpClient.close();
         }

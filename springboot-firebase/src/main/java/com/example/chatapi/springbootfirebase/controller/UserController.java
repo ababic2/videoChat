@@ -24,11 +24,14 @@ public class UserController{
 
     @PostMapping("/login") // done
     public String logInUser(@RequestBody LoginInfo userLoginInfo) {
-        return userService.logIn(userLoginInfo);
+        String token = userService.logIn(userLoginInfo);
+        System.out.println(token);
+        return token;
     }
 
     @PostMapping("/verification") // done
-    public String verification(@RequestHeader("Authorization") String token) {
+    public String verification(@RequestHeader("Authorization") String token) throws FirebaseAuthException, IOException {
+        System.out.println("HEADER");
         System.out.println(token);
         return userService.verification(token);
     }

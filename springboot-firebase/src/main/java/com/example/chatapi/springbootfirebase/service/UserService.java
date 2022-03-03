@@ -8,6 +8,7 @@ import com.google.firebase.auth.*;
 import com.google.firebase.cloud.FirestoreClient;
 import com.google.firebase.database.utilities.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
@@ -23,18 +24,38 @@ public class UserService {
 
     public String registerUser(User user) throws ExecutionException, InterruptedException, IOException {
 
+        BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
+
+        String hashedPass = bCryptPasswordEncoder.encode(user.getPassword());
+
         Firestore dbFirestore = FirestoreClient.getFirestore();
         Pair<String, String> registerInfo = firebaseService.registerUser(user);
-        ApiFuture<WriteResult> collectionApiFuture = dbFirestore.collection(COLLECTION_NAME).document(registerInfo.getSecond()).set(user);
 
-        verification(String.valueOf(registerInfo.getFirst()));
+        User userWithHashedPassword = new User();
+        userWithHashedPassword.setUsername(user.getUsername());
+        userWithHashedPassword.setEmail(user.getEmail());
+        userWithHashedPassword.setPassword(hashedPass);
+
+        ApiFuture<WriteResult> collectionApiFuture = dbFirestore.collection(COLLECTION_NAME).document(registerInfo.getSecond()).set(userWithHashedPassword);
+
+        System.out.println(registerInfo.getFirst() + " " + registerInfo.getSecond());
+//        verification(String.valueOf(registerInfo.getFirst()));
+        try {
+            firebaseService.verifyEmail(String.valueOf(registerInfo.getFirst()));
+        } catch (FirebaseAuthException e) {
+            System.out.println("Error in register user when verify!");
+            e.printStackTrace();
+        }
         return "Created at: " + collectionApiFuture.get().getUpdateTime().toString();
     }
 
     public String logIn(LoginInfo loginInfo) {
+
         String token = null;
         try {
             token = firebaseService.signInUser(loginInfo).toString();
+            System.out.println("HERE I AM");
+            System.out.println(token);
             FirebaseAuth.getInstance().verifyIdToken(token);
         } catch (Exception exception) {
             System.out.println("Invalid user!");
@@ -92,6 +113,7 @@ public class UserService {
             FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
             if(decodedToken.getUid().equals(documentName)) {
                 Firestore dbFirestore = FirestoreClient.getFirestore();
+                firebaseService.deleteAccount(token);
                 dbFirestore.collection(COLLECTION_NAME).document(documentName).delete();
                 deleteRecordFromJunctionTable(documentName);
                 return "Document with User ID" + documentName + " has been deleted successfully";
@@ -102,18 +124,26 @@ public class UserService {
         return TOKEN_INVALID;
     }
 
-    public String verification(String token) {
-        try {
-            if(isTokenValid(token)) {
-                firebaseService.verifyEmail(token);
-                return "Verification request sent on e-mail!";
-            } else {
-                return TOKEN_INVALID;
-            }
-        } catch (Exception exception) {
-            exception.printStackTrace();
-            return "Problem with verification request!";
-        }
+    public String verification(String token) throws FirebaseAuthException, IOException {
+        FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
+        firebaseService.verifyEmail(token);
+
+        System.out.println(decodedToken.getUid());
+        return decodedToken.getUid();
+
+//        try {
+//            if(isTokenValid(token)) {
+//                System.out.println("TOKEN VALID");
+//                firebaseService.verifyEmail(token);
+//                return "Verification request sent on e-mail!";
+//            } else {
+//                System.out.println("TOKEN INVALID");
+//                return TOKEN_INVALID;
+//            }
+//        } catch (Exception exception) {
+//            exception.printStackTrace();
+//            return "Problem with verification request!";
+//        }
     }
 
     public boolean checkIfUserIsVerified(String id) {
@@ -135,6 +165,7 @@ public class UserService {
             FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
             return true;
         } catch (FirebaseAuthException firebaseAuthException) {
+            System.out.println(firebaseAuthException.getAuthErrorCode());
             return false;
         }
     }
