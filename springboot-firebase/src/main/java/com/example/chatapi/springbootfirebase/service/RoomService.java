@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 @Service
@@ -18,7 +19,11 @@ public class RoomService {
 
     public String saveRoom(Room room) throws ExecutionException, InterruptedException {
         Firestore db = FirestoreClient.getFirestore();
-        ApiFuture<WriteResult> collectionApiFuture = db.collection(COLLECTION_NAME).document().set(room);
+        Room newRoom = new Room();
+        newRoom.setName(room.getName());
+        newRoom.setId(UUID.randomUUID().toString());
+        ApiFuture<WriteResult> collectionApiFuture = db.collection(COLLECTION_NAME).document(newRoom.getId()).set(newRoom);
+        var res = collectionApiFuture;
 
         return "Created at: " + collectionApiFuture.get().getUpdateTime().toString();
     }

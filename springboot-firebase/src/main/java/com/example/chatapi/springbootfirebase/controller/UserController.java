@@ -47,8 +47,8 @@ public class UserController{
     }
 
     @GetMapping("/users")
-    public List<User> getAllUsers(@RequestHeader("Authorization") String token) throws ExecutionException, InterruptedException {
-        return userService.getAllUsers(token);
+    public List<User> getAllUsers() throws ExecutionException, InterruptedException {
+        return userService.getAllUsers();
     }
 
     @PutMapping("/settings")

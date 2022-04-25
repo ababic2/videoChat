@@ -1,6 +1,7 @@
 package com.example.chatapi.springbootfirebase.entity;
 
 public class User {
+    private String id;
     private String username;
     private String email;
     private String password;
@@ -11,6 +12,14 @@ public class User {
     public User(String username, String email) {
         this.username = username;
         this.email = email;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getUsername() {

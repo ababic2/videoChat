@@ -8,6 +8,7 @@ import com.google.firebase.auth.*;
 import com.google.firebase.cloud.FirestoreClient;
 import com.google.firebase.database.utilities.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import java.io.IOException;
@@ -35,8 +36,9 @@ public class UserService {
         userWithHashedPassword.setUsername(user.getUsername());
         userWithHashedPassword.setEmail(user.getEmail());
         userWithHashedPassword.setPassword(hashedPass);
+        userWithHashedPassword.setId(UUID.randomUUID().toString());
 
-        ApiFuture<WriteResult> collectionApiFuture = dbFirestore.collection(COLLECTION_NAME).document(registerInfo.getSecond()).set(userWithHashedPassword);
+        ApiFuture<WriteResult> collectionApiFuture = dbFirestore.collection(COLLECTION_NAME).document(userWithHashedPassword.getId()).set(userWithHashedPassword);
 
         System.out.println(registerInfo.getFirst() + " " + registerInfo.getSecond());
 //        verification(String.valueOf(registerInfo.getFirst()));
@@ -78,9 +80,9 @@ public class UserService {
         return TOKEN_INVALID;
     }
 
-    public List<User> getAllUsers(String token) throws ExecutionException, InterruptedException {
+    public List<User> getAllUsers() throws ExecutionException, InterruptedException {
 
-        if(isTokenValid(token)) {
+        //if(isTokenValid(token)) {
             Firestore dbFirestore = FirestoreClient.getFirestore();
             Iterable<DocumentReference> documentReference = dbFirestore.collection(COLLECTION_NAME).listDocuments();
             Iterator<DocumentReference> iterator = documentReference.iterator();
@@ -93,9 +95,9 @@ public class UserService {
                 userList.add(document.toObject(User.class));
             }
             return userList;
-        } else {
+        /*} else {
             return null;
-        }
+        }*/
     }
 
     public String updateUser(User user, String token) throws ExecutionException, InterruptedException {

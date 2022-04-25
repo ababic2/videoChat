@@ -3,6 +3,7 @@ package com.example.chatapi.springbootfirebase.service;
 import com.example.chatapi.springbootfirebase.entity.Message;
 import com.example.chatapi.springbootfirebase.entity.Room;
 import com.google.api.core.ApiFuture;
+import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
@@ -11,6 +12,7 @@ import com.google.firebase.cloud.FirestoreClient;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -21,6 +23,7 @@ public class MessageService {
 
     public String saveMessage(Message message) throws ExecutionException, InterruptedException {
         Firestore db = FirestoreClient.getFirestore();
+        message.setCreatedAt(Timestamp.now());
         ApiFuture<WriteResult> collectionApiFuture = db.collection(COLLECTION_NAME).document().set(message);
 
         return "Sent at: " + collectionApiFuture.get().getUpdateTime().toString();

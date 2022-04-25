@@ -7,15 +7,17 @@ public class Message {
     private Timestamp createdAt;
     private String roomId;
     private String userId;
+    private String username;
 
     public Message() {
     }
 
-    public Message(String content, Timestamp timestamp, String roomId, String userId) {
+    public Message(String content, Timestamp timestamp, String roomId, String userId, String username) {
         this.content = content;
         this.createdAt = timestamp;
         this.roomId = roomId;
         this.userId = userId;
+        this.username = username;
     }
 
     public String getContent() {
@@ -50,4 +52,11 @@ public class Message {
         this.userId = userId;
     }
 
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
 }
